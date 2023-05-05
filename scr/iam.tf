@@ -39,8 +39,8 @@ data "aws_iam_policy_document" "example" {
     ]
 
     resources = [
-      "arn:aws:s3:::${var.s3_bucket_name}/home/&{aws:username}",
-      "arn:aws:s3:::${var.s3_bucket_name}/home/&{aws:username}/*",
+      "${aws_s3_bucket.this.arn}/home/&{aws:username}",
+      "${aws_s3_bucket.this.arn}/home/&{aws:username}/*",
     ]
   }
 }
@@ -50,3 +50,25 @@ resource "aws_iam_policy" "example" {
   path   = "/"
   policy = data.aws_iam_policy_document.example.json
 }
+
+data "aws_iam_policy_document" "instance_assume_role_policy" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+#resource "aws_iam_role" "instance" {
+#  name               = "instance_role"
+#  path               = "/system/"
+#  assume_role_policy = data.aws_iam_policy_document.instance_assume_role_policy.json
+#}
+
+#resource "aws_iam_role_policy_attachment" "test-attach" {
+#  role       = aws_iam_role.instance.name
+#  policy_arn = aws_iam_policy.example.arn
+#}
