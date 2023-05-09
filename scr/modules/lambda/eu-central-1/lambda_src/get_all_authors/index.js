@@ -1,13 +1,13 @@
 
 const AWS = require("aws-sdk");
 const dynamodb = new AWS.DynamoDB({
-  region: "eu-central-1",
+  region: process.env.AWS_REGION,
   apiVersion: "2012-08-10"
 });
 
 exports.handler = (event, context, callback) => {
   const params = {
-    TableName: "authors"
+    TableName: process.env.TABLE_NAME
   };
   dynamodb.scan(params, (err, data) => {
     if (err) {
