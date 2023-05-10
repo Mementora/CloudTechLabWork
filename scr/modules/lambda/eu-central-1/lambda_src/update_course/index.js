@@ -1,51 +1,52 @@
 const AWS = require("aws-sdk");
 const dynamodb = new AWS.DynamoDB({
-  region: "us-east-1",
+  region: "eu-central-1",
   apiVersion: "2012-08-10"
 });
 
-const replaceAll = (str, find, replace) => {
-  return str.replace(new RegExp(find, "g"), replace);
-};
-
 exports.handler = (event, context, callback) => {
-  const id = replaceAll(event.title, " ", "-").toLowerCase();
   const params = {
-    Item: {
+    Key: {
       id: {
-        S: id
-      },
-      title: {
-        S: event.title
-      },
-      watchHref: {
-        S: `http://www.pluralsight.com/courses/${id}`
-      },
-      authorId: {
-        S: event.authorId
-      },
-      length: {
-        S: event.length
-      },
-      category: {
-        S: event.category
+        S: event.id
       }
     },
-    TableName: "courses"
+    ExpressionAttributeNames: {
+      "#title": "title",
+      "#authorId": "authorId",
+      "#length": "length",
+      "#category": "category",
+      "#watchHref": "watchHref"
+    },
+    ExpressionAttributeValues: {
+      ":title": {
+        S: event.title
+      },
+      ":authorId": {
+        S: event.authorId
+      },
+      ":length": {
+        S: event.length
+      },
+      ":category": {
+        S: event.category
+      },
+      ":watchHref": {
+        S: event.watchHref
+      }
+    },
+    UpdateExpression: "SET #title = :title, #watchHref = :watchHref, #authorId = :authorId, #length = :length, #category = :category",
+    TableName: process.env.TABLE_NAME,
+    ReturnValues: "ALL_NEW",
+    ConditionExpression: "attribute_exists(id)"
   };
-  dynamodb.putItem(params, (err, data) => {
+  
+  dynamodb.updateItem(params, (err, data) => {
     if (err) {
       console.log(err);
       callback(err);
     } else {
-      callback(null, {
-        id: params.Item.id.S,
-        title: params.Item.title.S,
-        watchHref: params.Item.watchHref.S,
-        authorId: params.Item.authorId.S,
-        length: params.Item.length.S,
-        category: params.Item.category.S
-      });
+      callback(null, data.Attributes);
     }
   });
 };

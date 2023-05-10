@@ -2,6 +2,10 @@ data "aws_iam_policy_document" "table_courses" {
   statement {
     actions = [
       "dynamodb:Scan",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+      "dynamodb:GetItem",
+      "dynamodb:DeleteItem"
     ]
 
     resources = [

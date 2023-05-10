@@ -1,4 +1,3 @@
-
 const AWS = require("aws-sdk");
 const dynamodb = new AWS.DynamoDB({
   region: process.env.AWS_REGION,

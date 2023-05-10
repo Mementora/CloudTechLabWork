@@ -13,17 +13,7 @@ exports.handler = (event, context, callback) => {
       console.log(err);
       callback(err);
     } else {
-      const courses = data.Items.map(item => {
-        return {
-          id: item.id.S,
-          title: item.title.S,
-          watchHref: item.watchHref.S,
-          authorId: item.authorId.S,
-          length: item.length.S,
-          category: item.category.S
-        };
-      });
-      callback(null, courses);
+      callback(null, data);
     }
   });
 };
