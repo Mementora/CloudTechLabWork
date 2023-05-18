@@ -26,17 +26,100 @@ resource "aws_api_gateway_rest_api" "this" {
   }
 }
 
-resource "aws_api_gateway_request_validator" "this" {
-  name                        = "validate_request_body"
-  rest_api_id                 = aws_api_gateway_rest_api.this.id
-  validate_request_body       = true
-}
-
 resource "aws_api_gateway_resource" "courses" {
   rest_api_id = aws_api_gateway_rest_api.this.id
   parent_id   = aws_api_gateway_rest_api.this.root_resource_id
   path_part   = "courses"
 }
+
+#create nested resource Id
+resource "aws_api_gateway_resource" "Id"{
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  parent_id = aws_api_gateway_resource.courses.id
+  path_part = "{id}"
+}
+
+#create GET method
+resource "aws_api_gateway_method" "get_courses" {
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  resource_id   = aws_api_gateway_resource.Id.id
+  http_method   = "GET"
+  authorization = "NONE"
+}
+
+
+resource "aws_api_gateway_integration" "get_courses" {
+  rest_api_id             = aws_api_gateway_rest_api.this.id
+  resource_id             = aws_api_gateway_resource.Id.id
+  http_method             = aws_api_gateway_method.get_courses.http_method
+  integration_http_method = "POST"
+  type                    = "AWS"
+  uri                     = module.lambda.lambda_courses_invoke_arn
+  request_parameters      = {"integration.request.header.X-Authorization" = "'static'"}
+  request_templates       = {
+    "application/xml" = <<EOF
+  {
+     "body" : $input.json('$')
+  }
+  EOF
+  }
+  content_handling = "CONVERT_TO_TEXT"
+}
+
+resource "aws_api_gateway_method_response" "get_courses" {
+  rest_api_id     = aws_api_gateway_rest_api.this.id
+  resource_id     = aws_api_gateway_resource.Id.id
+  http_method     = aws_api_gateway_method.get_courses.http_method
+  status_code     = "200"
+  response_models = { "application/json" = "Empty" }
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true,
+    "method.response.header.Access-Control-Allow-Methods" = true,
+    "method.response.header.Access-Control-Allow-Origin" = false
+  }
+}
+
+resource "aws_api_gateway_integration_response" "get_courses" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  resource_id = aws_api_gateway_resource.Id.id
+  http_method = aws_api_gateway_method.get_courses.http_method
+  status_code = aws_api_gateway_method_response.get_courses.status_code
+
+  # # Transforms the backend JSON response to XML
+  # response_templates = {
+  #   "application/xml" = <<EOF
+  # {
+  #    "body" : $input.json('$')
+  # }
+  # EOF
+  # }
+  response_parameters ={
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,OPTIONS,POST,PUT'",
+    "method.response.header.Access-Control-Allow-Origin" = "'*'"
+  }
+}
+
+#Create Id option
+resource "aws_api_gateway_method" "Id_option" {
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  resource_id   = aws_api_gateway_resource.Id.id
+  http_method   = "OPTIONS"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "Id_integration" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  resource_id = aws_api_gateway_resource.Id.id
+  http_method = aws_api_gateway_method.Id_option.http_method
+  type = "MOCK"
+  request_templates = { 
+    "application/json" = <<PARAMS
+{ "statusCode": 200 }
+PARAMS
+  }
+}
+#end of Id options
 
 resource "aws_api_gateway_method" "courses_option" {
   rest_api_id   = aws_api_gateway_rest_api.this.id
@@ -68,6 +151,44 @@ PARAMS
   }
 }
 
+resource "aws_api_gateway_integration_response" "integration_response_get_courses" {
+  rest_api_id     = aws_api_gateway_rest_api.this.id
+  resource_id     = aws_api_gateway_resource.courses.id
+  http_method     = aws_api_gateway_method.courses_option.http_method
+  status_code     = "200"
+#   response_parameters = {
+#     # "method.response.header.access-control-allow-headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+#     # "method.response.header.access-control-allow-methods" = "'POST,OPTIONS,GET,PUT,PATCH,DELETE'",
+#     # "method.response.header.access-control-allow-origin" = "'*'"
+#   }
+# response_parameters = { "integration.response.header.access-control-allow-origin" = "'*'" }
+}
+
+resource "aws_api_gateway_method_response" "courses_option_response_200" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  resource_id = aws_api_gateway_resource.courses.id
+  http_method = aws_api_gateway_method.courses_option.http_method
+  status_code = "200"
+}
+
+resource "aws_api_gateway_integration_response" "courses_integration_response" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  resource_id = aws_api_gateway_resource.courses.id
+  http_method = aws_api_gateway_method.courses_option.http_method
+  status_code = aws_api_gateway_method_response.courses_option_response_200.status_code
+
+  # Transforms the backend JSON response to XML
+  response_templates = {
+    "application/xml" = <<EOF
+#set($inputRoot = $input.path('$'))
+<?xml version="1.0" encoding="UTF-8"?>
+<message>
+    $inputRoot.body
+</message>
+EOF
+  }
+}
+
 resource "aws_api_gateway_deployment" "this" {
   rest_api_id = aws_api_gateway_rest_api.this.id
 
@@ -87,7 +208,7 @@ resource "aws_api_gateway_stage" "dev" {
 }
 
 
-resource "aws_api_gateway_integration" "get_courses" {
+resource "aws_api_gateway_integration" "courses_post" {
   rest_api_id             = aws_api_gateway_rest_api.this.id
   resource_id             = aws_api_gateway_resource.courses.id
   http_method             = aws_api_gateway_method.courses_post.http_method
@@ -127,6 +248,135 @@ resource "aws_api_gateway_model" "post_course" {
 EOF
 }
 
+#Create DELETE Method
+resource "aws_api_gateway_method" "delete_courses" {
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  resource_id   = aws_api_gateway_resource.Id.id
+  http_method   = "DELETE"
+  authorization = "NONE"
+}
+
+
+resource "aws_api_gateway_integration" "delete_courses" {
+  rest_api_id             = aws_api_gateway_rest_api.this.id
+  resource_id             = aws_api_gateway_resource.Id.id
+  http_method             = aws_api_gateway_method.delete_courses.http_method
+  integration_http_method = "POST"
+  type                    = "AWS"
+  uri                     = module.lambda.lambda_courses_invoke_arn
+  request_parameters      = {"integration.request.header.X-Authorization" = "'static'"}
+  request_templates       = {
+    "application/xml" = <<EOF
+  {
+     "body" : $input.json('$')
+  }
+  EOF
+  }
+  content_handling = "CONVERT_TO_TEXT"
+}
+
+resource "aws_api_gateway_method_response" "delete_courses" {
+  rest_api_id     = aws_api_gateway_rest_api.this.id
+  resource_id     = aws_api_gateway_resource.Id.id
+  http_method     = aws_api_gateway_method.delete_courses.http_method
+  status_code     = "200"
+  response_models = { "application/json" = "Empty" }
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true,
+    "method.response.header.Access-Control-Allow-Methods" = true,
+    "method.response.header.Access-Control-Allow-Origin" = false
+  }
+}
+
+resource "aws_api_gateway_integration_response" "delete_courses" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  resource_id = aws_api_gateway_resource.Id.id
+  http_method = aws_api_gateway_method.delete_courses.http_method
+  status_code = aws_api_gateway_method_response.delete_courses.status_code
+
+  # # Transforms the backend JSON response to XML
+  # response_templates = {
+  #   "application/xml" = <<EOF
+  # {
+  #    "body" : $input.json('$')
+  # }
+  # EOF
+  # }
+  response_parameters ={
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,OPTIONS,POST,PUT'",
+    "method.response.header.Access-Control-Allow-Origin" = "'*'"
+  }
+}
+#end of DELETE Method
+
+
+#Create PUT Method
+resource "aws_api_gateway_method" "put_courses" {
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  resource_id   = aws_api_gateway_resource.Id.id
+  http_method   = "PUT"
+  authorization = "NONE"
+}
+
+
+resource "aws_api_gateway_integration" "put_courses" {
+  rest_api_id             = aws_api_gateway_rest_api.this.id
+  resource_id             = aws_api_gateway_resource.Id.id
+  http_method             = aws_api_gateway_method.put_courses.http_method
+  integration_http_method = "POST"
+  type                    = "AWS"
+  uri                     = module.lambda.lambda_courses_invoke_arn
+  request_parameters      = {"integration.request.header.X-Authorization" = "'static'"}
+  request_templates       = {
+    "application/xml" = <<EOF
+  {
+     "body" : $input.json('$')
+  }
+  EOF
+  }
+  content_handling = "CONVERT_TO_TEXT"
+}
+
+resource "aws_api_gateway_method_response" "put_courses" {
+  rest_api_id     = aws_api_gateway_rest_api.this.id
+  resource_id     = aws_api_gateway_resource.Id.id
+  http_method     = aws_api_gateway_method.put_courses.http_method
+  status_code     = "200"
+  response_models = { "application/json" = "Empty" }
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true,
+    "method.response.header.Access-Control-Allow-Methods" = true,
+    "method.response.header.Access-Control-Allow-Origin" = false
+  }
+}
+
+resource "aws_api_gateway_integration_response" "put_courses" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  resource_id = aws_api_gateway_resource.Id.id
+  http_method = aws_api_gateway_method.put_courses.http_method
+  status_code = aws_api_gateway_method_response.put_courses.status_code
+
+  # # Transforms the backend JSON response to XML
+  # response_templates = {
+  #   "application/xml" = <<EOF
+  # {
+  #    "body" : $input.json('$')
+  # }
+  # EOF
+  # }
+  response_parameters ={
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,OPTIONS,POST,PUT'",
+    "method.response.header.Access-Control-Allow-Origin" = "'*'"
+  }
+}
+#end of PUT Method
+resource "aws_api_gateway_request_validator" "this" {
+  name                        = "validate_request_body"
+  rest_api_id                 = aws_api_gateway_rest_api.this.id
+  validate_request_body       = true
+}
 
 #####################
 
