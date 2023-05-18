@@ -13,7 +13,7 @@ exports.handler = (event, context, callback) => {
   const params = {
     Item: {
       id: {
-        S: id
+        S: event.id
       },
       title: {
         S: event.title
@@ -22,7 +22,7 @@ exports.handler = (event, context, callback) => {
         S: `http://www.pluralsight.com/courses/${id}`
       },
       authorId: {
-        S: event.authorId
+        S: event.authoId
       },
       length: {
         S: event.length

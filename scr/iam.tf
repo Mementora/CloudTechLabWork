@@ -73,3 +73,12 @@ resource "aws_iam_role" "instance" {
 #  role       = aws_iam_role.instance[0].name
 #  policy_arn = aws_iam_policy.example.arn
 #}
+
+resource "aws_lambda_permission" "allow_api_gateway" {
+  statement_id  = "AllowExecutionFromAPIGateWay"
+  action        = "lambda:InvokeFunction"
+  function_name = module.lambda.lambda_authors_function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = aws_api_gateway_rest_api.this.arn
+ # qualifier     = aws_lambda_alias.test_alias.name
+}
