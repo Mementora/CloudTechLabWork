@@ -22,7 +22,7 @@ exports.handler = (event, context, callback) => {
         S: `http://www.pluralsight.com/courses/${id}`
       },
       authorId: {
-        S: event.authoId
+        S: event.authorId
       },
       length: {
         S: event.length

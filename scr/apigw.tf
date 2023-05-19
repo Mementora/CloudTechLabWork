@@ -1,23 +1,4 @@
 resource "aws_api_gateway_rest_api" "this" {
-#   body = jsonencode({
-#     openapi = "3.0.1"
-#     info = {
-#       title   = "example"
-#       version = "1.0"
-#     }
-#     paths = {
-#       "/path1" = {
-#         get = {
-#           x-amazon-apigateway-integration = {
-#             httpMethod           = "GET"
-#             payloadFormatVersion = "1.0"
-#             type                 = "HTTP_PROXY"
-#             uri                  = "https://ip-ranges.amazonaws.com/ip-ranges.json"
-#           }
-#         }
-#       }
-#     }
-#   })
 
   name = module.label_api.id
 
@@ -128,7 +109,7 @@ resource "aws_api_gateway_method" "courses_option" {
   authorization = "NONE"
 }
 
-resource "aws_api_gateway_method" "courses_post" {
+resource "aws_api_gateway_method" "course_post" {
   rest_api_id   = aws_api_gateway_rest_api.this.id
   resource_id   = aws_api_gateway_resource.courses.id
   http_method   = "POST"
@@ -208,10 +189,10 @@ resource "aws_api_gateway_stage" "dev" {
 }
 
 
-resource "aws_api_gateway_integration" "courses_post" {
+resource "aws_api_gateway_integration" "post_course" {
   rest_api_id             = aws_api_gateway_rest_api.this.id
   resource_id             = aws_api_gateway_resource.courses.id
-  http_method             = aws_api_gateway_method.courses_post.http_method
+  http_method             = aws_api_gateway_method.course_post.http_method
   integration_http_method = "POST"
   type                    = "AWS"
   uri                     = module.lambda.lambda_courses_invoke_arn
@@ -246,6 +227,19 @@ resource "aws_api_gateway_model" "post_course" {
   "required": ["title", "authorId", "length", "category"]
 }
 EOF
+}
+
+resource "aws_api_gateway_method_response" "post_course" {
+  rest_api_id     = aws_api_gateway_rest_api.this.id
+  resource_id     = aws_api_gateway_resource.courses.id
+  http_method     = aws_api_gateway_method.course_post.http_method
+  status_code     = "200"
+  response_models = { "application/json" = "Empty" }
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true,
+    "method.response.header.Access-Control-Allow-Methods" = true,
+    "method.response.header.Access-Control-Allow-Origin" = false
+  }
 }
 
 #Create DELETE Method
